@@ -15,7 +15,7 @@ export async function orderRoutes(app: FastifyInstance) {
       body: z.object({
         shippingZone: z.string(),
         items: z.array(z.object({
-          productId: z.string().uuid(),
+          productId: z.union([z.number(), z.string()]).pipe(z.coerce.number().int().positive()),
           quantity: z.number().int().positive(),
         })).min(1),
       }),

@@ -25,7 +25,8 @@ export class UserController {
   }
 
   async getMe(request: FastifyRequest, reply: FastifyReply) {
-    const { sub: userId } = request.user as { sub: string };
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
     const user = await (prisma as any).user.findUnique({
       where: { id: userId },
       include: { 
@@ -43,7 +44,8 @@ export class UserController {
   }
 
   async updateMe(request: FastifyRequest, reply: FastifyReply) {
-    const { sub: userId } = request.user as { sub: string };
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
     const { name, email, phoneNumber } = request.body as any;
 
     try {

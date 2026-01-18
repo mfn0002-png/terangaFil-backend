@@ -5,7 +5,8 @@ import { SupplierStatus } from '../../../core/entities/Supplier.js';
 
 export class AdminController {
   async validateSupplier(request: FastifyRequest, reply: FastifyReply) {
-    const { id } = request.params as { id: string };
+    const { id: idStr } = request.params as { id: string };
+    const id = Number(idStr);
     const { status } = request.body as { status: SupplierStatus };
 
     const repository = new PrismaSupplierRepository();

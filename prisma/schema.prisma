@@ -45,6 +45,7 @@ model User {
   supplier    Supplier?
   orders      Order[]
   createdAt   DateTime @default(now())
+  favorites   Favorite[]
 }
 
 model Supplier {
@@ -71,10 +72,32 @@ model Product {
   stock       Int
   category    String
   isSpotlight Boolean  @default(false)
-  imageUrl    String?
+  imageUrl    String?  // Main image
+  images      String[] // Gallery
+  
+  // Specifications
+  description String?
+  material    String?
+  weight      String?
+  length      String?
+  usage       String?
+  colors      String[]
+
   items       OrderItem[]
+  favorites   Favorite[]
   supplier    Supplier @relation(fields: [supplierId], references: [id])
   createdAt   DateTime @default(now())
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  user      User     @relation(fields: [userId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
 }
 
 model ShippingRate {

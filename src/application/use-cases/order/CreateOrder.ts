@@ -32,7 +32,7 @@ export class CreateOrderUseCase {
     // 3. Calculer les totaux et frais de port par groupe
     let totalProducts = 0;
     let totalShipping = 0;
-    const supplierInfos: { supplierId: string, shippingPrice: number, items: any[] }[] = [];
+    const supplierInfos: { supplierId: number, shippingPrice: number, items: any[] }[] = [];
 
     for (const supplierIdStr in supplierGroups) {
       const supplierId = Number(supplierIdStr);

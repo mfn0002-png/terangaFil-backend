@@ -30,7 +30,7 @@ export class AddProductUseCase {
     }
 
     // 2. Vérifier la limite de produits
-    const productCount = await prisma.product.count({
+    const productCount = await (prisma as any).product.count({
       where: { supplierId: supplier.id }
     });
 

@@ -11,6 +11,7 @@ import { catalogRoutes } from './interfaces/http/routes/catalogRoutes.js';
 import { orderRoutes } from './interfaces/http/routes/orderRoutes.js';
 import { adminRoutes } from './interfaces/http/routes/adminRoutes.js';
 import { premiumRoutes } from './interfaces/http/routes/premiumRoutes.js';
+import { favoriteRoutes } from './interfaces/http/routes/favoriteRoutes.js';
 import fastifyCors from '@fastify/cors';
 
 dotenv.config();
@@ -66,6 +67,7 @@ app.register(catalogRoutes);
 app.register(orderRoutes);
 app.register(adminRoutes);
 app.register(premiumRoutes);
+app.register(favoriteRoutes);
 
 // Route de santé (Health Check)
 app.get('/health', async (request, reply) => {

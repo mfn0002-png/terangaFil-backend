@@ -12,8 +12,8 @@ export async function catalogRoutes(app: FastifyInstance) {
       querystring: z.object({
         supplierId: z.string().optional(),
         category: z.string().optional(),
-        minPrice: z.number().int().optional(),
-        maxPrice: z.number().int().optional(),
+        minPrice: z.coerce.number().int().optional(),
+        maxPrice: z.coerce.number().int().optional(),
       }),
     },
   }, catalogController.listProducts);
@@ -34,4 +34,14 @@ export async function catalogRoutes(app: FastifyInstance) {
       }),
     },
   }, catalogController.getSupplier);
+
+  app.get('/catalog/products/:id', {
+    schema: {
+      description: 'Récupérer les détails d\'un produit',
+      tags: ['Catalogue'],
+      params: z.object({
+        id: z.string(),
+      }),
+    },
+  }, catalogController.getProduct);
 }

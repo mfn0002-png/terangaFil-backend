@@ -8,7 +8,8 @@ import { PrismaShippingRateRepository } from '../../../infrastructure/repositori
 
 export class SupplierController {
   async setupProfile(request: FastifyRequest, reply: FastifyReply) {
-    const { sub: userId } = request.user as { sub: string };
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
     const { shopName, description } = request.body as any;
 
     const repository = new PrismaSupplierRepository();
@@ -23,7 +24,8 @@ export class SupplierController {
   }
 
   async addProduct(request: FastifyRequest, reply: FastifyReply) {
-    const { sub: userId } = request.user as { sub: string };
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
     const { name, price, stock, category } = request.body as any;
 
     const productRepo = new PrismaProductRepository();
@@ -39,7 +41,8 @@ export class SupplierController {
   }
 
   async addShippingRate(request: FastifyRequest, reply: FastifyReply) {
-    const { sub: userId } = request.user as { sub: string };
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
     const { zone, price, delay } = request.body as any;
 
     const shippingRepo = new PrismaShippingRateRepository();

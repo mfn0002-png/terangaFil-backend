@@ -12,7 +12,7 @@ export class CatalogController {
     const useCase = new ListProductsUseCase();
 
     const products = await useCase.execute({
-      supplierId,
+      supplierId: supplierId ? Number(supplierId) : undefined,
       category,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
@@ -22,7 +22,8 @@ export class CatalogController {
   }
 
   async getSupplier(request: FastifyRequest, reply: FastifyReply) {
-    const { id } = request.params as { id: string };
+    const { id: idStr } = request.params as { id: string };
+    const id = Number(idStr);
 
     const repository = new PrismaSupplierRepository();
     const useCase = new GetSupplierUseCase(repository);
@@ -40,5 +41,22 @@ export class CatalogController {
     const useCase = new ListSuppliersUseCase(repository);
     const suppliers = await useCase.execute();
     return reply.send(suppliers);
+  }
+
+  async getProduct(request: FastifyRequest, reply: FastifyReply) {
+    const { id: idStr } = request.params as { id: string };
+    const id = Number(idStr);
+
+    const repository = new PrismaProductRepository();
+
+    try {
+      const product = await repository.findById(id);
+      if (!product) {
+        return reply.status(404).send({ message: 'Produit non trouvé.' });
+      }
+      return reply.send(product);
+    } catch (error: any) {
+      return reply.status(500).send({ message: error.message });
+    }
   }
 }

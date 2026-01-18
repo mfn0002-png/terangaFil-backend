@@ -6,7 +6,8 @@ import { PrismaShippingRateRepository } from '../../../infrastructure/repositori
 
 export class OrderController {
   async create(request: FastifyRequest, reply: FastifyReply) {
-    const { sub: userId } = request.user as { sub: string };
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
     const { items, shippingZone } = request.body as any;
 
     const orderRepo = new PrismaOrderRepository();
