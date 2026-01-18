@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  SUPPLIER
+  ADMIN
+}
+
+enum SupplierStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+  PENDING
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String?  @unique
+  phoneNumber String   @unique
+  password    String
+  role        Role
+  supplier    Supplier?
+  orders      Order[]
+  createdAt   DateTime @default(now())
+}
+
+model Supplier {
+  id            Int             @id @default(autoincrement())
+  userId        Int             @unique
+  shopName      String
+  description   String?
+  status        SupplierStatus  @default(PENDING)
+  products      Product[]
+  shipping      ShippingRate[]
+  orders        SupplierOrder[]
+  subscriptions Subscription[]
+  logoUrl       String?
+  bannerUrl     String?
+  user          User            @relation(fields: [userId], references: [id])
+  createdAt     DateTime        @default(now())
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  supplierId  Int
+  name        String
+  price       Int
+  stock       Int
+  category    String
+  isSpotlight Boolean  @default(false)
+  imageUrl    String?
+  items       OrderItem[]
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model ShippingRate {
+  id         Int      @id @default(autoincrement())
+  supplierId Int
+  zone       String
+  price      Int
+  delay      String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+}
+
+model Order {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  total     Int
+  status    OrderStatus      @default(PENDING)
+  items     OrderItem[]
+  suppliers SupplierOrder[]
+  user      User             @relation(fields: [userId], references: [id])
+  createdAt DateTime         @default(now())
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  price     Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model SupplierOrder {
+  id            Int          @id @default(autoincrement())
+  orderId       Int
+  supplierId    Int
+  shippingPrice Int
+  status        OrderStatus  @default(PENDING)
+  order         Order        @relation(fields: [orderId], references: [id])
+  supplier      Supplier     @relation(fields: [supplierId], references: [id])
+}
+
+model Plan {
+  id            Int            @id @default(autoincrement())
+  name          String         @unique // FREE, PREMIUM, ULTIMATE
+  price         Int            // en centimes
+  productLimit  Int            // nombre max de produits
+  hasSpotlight  Boolean        @default(false)
+  hasStats      Boolean        @default(false)
+  hasBadge      Boolean        @default(false)
+  priorityLevel Int            @default(0)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id         Int                @id @default(autoincrement())
+  supplierId Int
+  supplier   Supplier           @relation(fields: [supplierId], references: [id])
+  planId     Int
+  plan       Plan               @relation(fields: [planId], references: [id])
+  startDate  DateTime           @default(now())
+  endDate    DateTime?
+  status     SubscriptionStatus @default(ACTIVE)
+  payments   SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  amount         Int
+  currency       String       @default("XOF")
+  paymentMethod  String       // STRIPE, MOBILE_MONEY
+  status         String       // SUCCESS, FAILED, PENDING
+  invoiceUrl     String?
+  createdAt      DateTime     @default(now())
+}
