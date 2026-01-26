@@ -40,4 +40,17 @@ export async function userRoutes(app: FastifyInstance) {
     },
     preHandler: [authMiddleware],
   }, userController.updateMe);
+
+  app.patch('/users/me/password', {
+    schema: {
+      description: 'Changer le mot de passe',
+      tags: ['User'],
+      security: [{ bearerAuth: [] }],
+      body: z.object({
+        currentPassword: z.string(),
+        newPassword: z.string().min(6),
+      }),
+    },
+    preHandler: [authMiddleware],
+  }, userController.changePassword);
 }

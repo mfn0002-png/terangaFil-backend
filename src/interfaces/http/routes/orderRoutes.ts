@@ -13,11 +13,20 @@ export async function orderRoutes(app: FastifyInstance) {
       tags: ['Commandes'],
       security: [{ bearerAuth: [] }],
       body: z.object({
-        shippingZone: z.string(),
         items: z.array(z.object({
           productId: z.union([z.number(), z.string()]).pipe(z.coerce.number().int().positive()),
           quantity: z.number().int().positive(),
+          color: z.string().optional().nullable(),
+          size: z.string().optional().nullable(),
+          shippingZone: z.string().optional().nullable(),
         })).min(1),
+        paymentMethod: z.string(),
+        customerInfo: z.object({
+          firstName: z.string(),
+          lastName: z.string(),
+          phoneNumber: z.string(),
+          address: z.string(),
+        }),
       }),
     },
     preHandler: [authMiddleware],

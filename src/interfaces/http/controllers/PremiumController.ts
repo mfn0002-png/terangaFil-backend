@@ -6,46 +6,60 @@ import { GetPaymentHistoryUseCase } from '../../../application/use-cases/premium
 import { PrismaSupplierRepository } from '../../../infrastructure/repositories/PrismaSupplierRepository.js';
 
 export class PremiumController {
-  async listPlans(request: FastifyRequest, reply: FastifyReply) {
+  private getSupplier = async (userId: number) => {
+    let supplier = await prisma.supplier.findUnique({ where: { userId } });
+    if (!supplier) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.role === 'SUPPLIER') {
+        supplier = await prisma.supplier.create({
+          data: {
+            userId,
+            shopName: `Boutique de ${user.name.split(' ')[0]}`,
+            status: 'ACTIVE'
+          }
+        });
+      } else {
+        throw new Error('Fournisseur non trouvé.');
+      }
+    }
+    return supplier;
+  };
+
+  listPlans = async (request: FastifyRequest, reply: FastifyReply) => {
     const plans = await (prisma as any).plan.findMany();
     return reply.send(plans);
-  }
+  };
 
-  async subscribe(request: FastifyRequest, reply: FastifyReply) {
+  subscribe = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
     const { planName, paymentMethod } = request.body as any;
 
-    const supplierRepo = new PrismaSupplierRepository();
-    const useCase = new SubscribeToPlanUseCase(supplierRepo);
-
     try {
-      const subscription = await useCase.execute({ userId, planName, paymentMethod });
+      const subscription = await new SubscribeToPlanUseCase(new PrismaSupplierRepository()).execute({ userId, planName, paymentMethod });
       return reply.status(201).send(subscription);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
     }
-  }
+  };
 
-  async getMySubscription(request: FastifyRequest, reply: FastifyReply) {
+  getMySubscription = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
-    const supplierRepo = new PrismaSupplierRepository();
-    const supplier = await supplierRepo.findByUserId(userId);
-
-    if (!supplier) {
-      return reply.status(404).send({ message: 'Fournisseur non trouvé.' });
+    
+    try {
+      const supplier = await this.getSupplier(userId);
+      const subscription = await (prisma as any).subscription.findFirst({
+        where: { supplierId: supplier.id, status: 'ACTIVE' },
+        include: { plan: true, payments: true }
+      });
+      return reply.send(subscription);
+    } catch (error: any) {
+      return reply.status(400).send({ message: error.message });
     }
+  };
 
-    const subscription = await (prisma as any).subscription.findFirst({
-      where: { supplierId: supplier.id, status: 'ACTIVE' },
-      include: { plan: true, payments: true }
-    });
-
-    return reply.send(subscription);
-  }
-
-  async getStats(request: FastifyRequest, reply: FastifyReply) {
+  getStats = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
     const useCase = new GetSupplierStatsUseCase();
@@ -56,9 +70,9 @@ export class PremiumController {
     } catch (error: any) {
       return reply.status(403).send({ message: error.message });
     }
-  }
+  };
 
-  async getPayments(request: FastifyRequest, reply: FastifyReply) {
+  getPayments = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
     const useCase = new GetPaymentHistoryUseCase();
@@ -69,5 +83,5 @@ export class PremiumController {
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
     }
-  }
+  };
 }

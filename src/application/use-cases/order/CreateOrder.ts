@@ -10,11 +10,29 @@ export class CreateOrderUseCase {
     private shippingRateRepository: ShippingRateRepository
   ) {}
 
-  async execute(data: { userId: number; items: { productId: number; quantity: number }[]; shippingZone: string }) {
+  async execute(data: { 
+    userId: number; 
+    items: { 
+      productId: number; 
+      quantity: number; 
+      color?: string; 
+      size?: string; 
+      shippingZone?: string 
+    }[]; 
+    customerInfo?: {
+      firstName: string;
+      lastName: string;
+      phoneNumber: string;
+      address: string;
+    };
+  }) {
     // 1. Récupérer les produits et vérifier le stock
     const itemsWithDetails = await Promise.all(
       data.items.map(async (item) => {
-        const product = await this.productRepository.findById(item.productId);
+        const product = await (prisma as any).product.findUnique({ 
+          where: { id: item.productId },
+          include: { supplier: { include: { shipping: true } } }
+        });
         if (!product) throw new Error(`Produit ${item.productId} non trouvé.`);
         if (product.stock < item.quantity) throw new Error(`Stock insuffisant pour ${product.name}.`);
         return { ...item, product };
@@ -39,25 +57,36 @@ export class CreateOrderUseCase {
       const items = supplierGroups[supplierIdStr];
       const subtotal = items.reduce((sum: number, i: any) => sum + (i.product.price * i.quantity), 0);
       
-      // Trouver le tarif de livraison pour ce fournisseur et cette zone
-      const rates = await this.shippingRateRepository.listBySupplier(supplierId);
-      const rate = rates.find(r => r.zone.toLowerCase() === data.shippingZone.toLowerCase());
-      
-      const shippingPrice = rate ? rate.price : 0; // Si pas de zone trouvée, on pourrait lever une erreur ou mettre 0
+      // Calculer les frais de port : somme des frais pour chaque zone unique choisie pour ce fournisseur
+      const uniqueZones = new Set();
+      items.forEach((item: any) => {
+        if (item.shippingZone) {
+          const rate = item.product.supplier.shipping.find(
+            (r: any) => r.zone.toLowerCase() === item.shippingZone.toLowerCase()
+          );
+          uniqueZones.add(`${item.shippingZone}_${rate ? rate.price : 0}`);
+        }
+      });
+
+      let supplierShippingPrice = 0;
+      uniqueZones.forEach((zoneKey: any) => {
+        const [_, price] = zoneKey.split('_');
+        supplierShippingPrice += Number(price);
+      });
       
       totalProducts += subtotal;
-      totalShipping += shippingPrice;
+      totalShipping += supplierShippingPrice;
       
       supplierInfos.push({
         supplierId,
-        shippingPrice,
+        shippingPrice: supplierShippingPrice,
         items
       });
     }
 
     const grandTotal = totalProducts + totalShipping;
 
-    // 4. Création transactionnelle (via Prisma directement pour assurer l'atomicité car SOLID Repository peut être limité ici)
+    // 4. Création transactionnelle
     return await prisma.$transaction(async (tx) => {
       // Créer la commande globale
       const order = await tx.order.create({
@@ -65,6 +94,10 @@ export class CreateOrderUseCase {
           userId: data.userId,
           total: grandTotal,
           status: 'PENDING',
+          customerFirstName: data.customerInfo?.firstName || null,
+          customerLastName: data.customerInfo?.lastName || null,
+          customerPhoneNumber: data.customerInfo?.phoneNumber || null,
+          customerAddress: data.customerInfo?.address || null,
         },
       });
 
@@ -87,6 +120,9 @@ export class CreateOrderUseCase {
               productId: item.productId,
               quantity: item.quantity,
               price: item.product.price,
+              color: item.color || null,
+              size: item.size || null,
+              shippingZone: item.shippingZone || null,
             }
           });
 

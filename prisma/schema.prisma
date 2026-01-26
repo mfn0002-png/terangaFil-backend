@@ -60,6 +60,11 @@ model Supplier {
   subscriptions Subscription[]
   logoUrl       String?
   bannerUrl     String?
+  
+  // Payment info
+  paymentMethod      String? // WAVE, OM, BANK
+  paymentPhoneNumber String?
+  
   user          User            @relation(fields: [userId], references: [id])
   createdAt     DateTime        @default(now())
 }
@@ -71,6 +76,7 @@ model Product {
   price       Int
   stock       Int
   category    String
+  isActive    Boolean  @default(true)
   isSpotlight Boolean  @default(false)
   imageUrl    String?  // Main image
   images      String[] // Gallery
@@ -81,7 +87,9 @@ model Product {
   weight      String?
   length      String?
   usage       String?
+  hookSize    String?
   colors      String[]
+  sizes       String[]
 
   items       OrderItem[]
   favorites   Favorite[]
@@ -110,24 +118,31 @@ model ShippingRate {
 }
 
 model Order {
-  id        Int              @id @default(autoincrement())
-  userId    Int
-  total     Int
-  status    OrderStatus      @default(PENDING)
-  items     OrderItem[]
-  suppliers SupplierOrder[]
-  user      User             @relation(fields: [userId], references: [id])
-  createdAt DateTime         @default(now())
+  id                Int              @id @default(autoincrement())
+  userId            Int
+  total             Int
+  status            OrderStatus      @default(PENDING)
+  customerFirstName String?
+  customerLastName  String?
+  customerPhoneNumber String?
+  customerAddress   String?
+  items             OrderItem[]
+  suppliers         SupplierOrder[]
+  user              User             @relation(fields: [userId], references: [id])
+  createdAt         DateTime         @default(now())
 }
 
 model OrderItem {
-  id        Int     @id @default(autoincrement())
-  orderId   Int
-  productId Int
-  quantity  Int
-  price     Int
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  id           Int     @id @default(autoincrement())
+  orderId      Int
+  productId    Int
+  quantity     Int
+  price        Int
+  color        String?
+  size         String?
+  shippingZone String?
+  order        Order   @relation(fields: [orderId], references: [id])
+  product      Product @relation(fields: [productId], references: [id])
 }
 
 model SupplierOrder {

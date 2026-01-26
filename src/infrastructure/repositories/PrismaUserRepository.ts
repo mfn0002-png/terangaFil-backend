@@ -12,7 +12,16 @@ export class PrismaUserRepository implements UserRepository {
         phoneNumber: data.phoneNumber,
         password: data.passwordHash,
         role: data.role,
+        ...(data.role === Role.SUPPLIER ? {
+          supplier: {
+            create: {
+              shopName: `Boutique de ${data.name.split(' ')[0]}`,
+              status: 'ACTIVE' // Activer par défaut pour le test
+            }
+          }
+        } : {})
       },
+      include: { supplier: true }
     });
     return new User(user.id, user.name, user.email, user.phoneNumber, user.role, user.createdAt);
   }

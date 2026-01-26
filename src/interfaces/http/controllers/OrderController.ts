@@ -8,7 +8,7 @@ export class OrderController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
-    const { items, shippingZone } = request.body as any;
+    const { items, customerInfo } = request.body as any;
 
     const orderRepo = new PrismaOrderRepository();
     const productRepo = new PrismaProductRepository();
@@ -17,7 +17,7 @@ export class OrderController {
     const useCase = new CreateOrderUseCase(orderRepo, productRepo, shippingRepo as any);
 
     try {
-      const order = await useCase.execute({ userId, items, shippingZone });
+      const order = await useCase.execute({ userId, items });
       return reply.status(201).send(order);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });

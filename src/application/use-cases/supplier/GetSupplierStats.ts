@@ -15,29 +15,48 @@ export class GetSupplierStatsUseCase {
     if (!supplier) throw new Error('Fournisseur non trouvé.');
     
     const subscription = supplier.subscriptions?.[0];
-    if (!subscription || !subscription.plan.hasStats) {
-      throw new Error('Votre plan actuel ne permet pas d\'accéder aux statistiques avancées.');
-    }
+    // Basic stats always available, advanced only for hasStats
+    const hasAdvancedStats = subscription?.plan.hasBadge || subscription?.plan.hasStats;
 
-    // Calculer les stats
+    // 1. Total & Revenue
     const totalOrders = await prisma.supplierOrder.count({ where: { supplierId: supplier.id } });
-    const totalRevenue = await prisma.orderItem.aggregate({
+    const pendingOrders = await prisma.supplierOrder.count({ 
+      where: { supplierId: supplier.id, status: { in: ['PENDING', 'CONFIRMED', 'PREPARING'] } } 
+    });
+    
+    // Revenue logic: total of OrderItems corresponding to this supplier's products
+    const revenueStats = await prisma.orderItem.aggregate({
       where: { product: { supplierId: supplier.id } },
       _sum: { price: true }
     });
 
-    const productPerformance = await prisma.orderItem.groupBy({
+    // 2. Alertes Stock (Low < 10)
+    const lowStockCount = await (prisma as any).product.count({
+      where: { 
+        supplierId: supplier.id,
+        stock: { lt: 10 },
+        isActive: true
+      }
+    });
+
+    // 3. Best Sellers (Advanced)
+    const bestSellers = hasAdvancedStats ? await prisma.orderItem.groupBy({
       by: ['productId'],
       where: { product: { supplierId: supplier.id } },
       _count: { productId: true },
       orderBy: { _count: { productId: 'desc' } },
       take: 5
-    });
+    }) : [];
 
     return {
-      totalOrders,
-      totalRevenue: totalRevenue._sum.price || 0,
-      bestSellers: productPerformance
+      overview: {
+        totalOrders,
+        pendingOrders,
+        totalRevenue: revenueStats._sum.price || 0,
+        lowStockItems: lowStockCount
+      },
+      bestSellers,
+      hasAdvancedStats
     };
   }
 }

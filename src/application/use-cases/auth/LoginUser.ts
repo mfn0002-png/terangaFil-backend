@@ -13,7 +13,8 @@ export class LoginUserUseCase {
           { email: data.identifier },
           { phoneNumber: data.identifier }
         ]
-      }
+      },
+      include: { supplier: true }
     });
     
     if (!userDb) {
@@ -31,6 +32,7 @@ export class LoginUserUseCase {
       name: userDb.name,
       phoneNumber: userDb.phoneNumber,
       role: userDb.role,
+      supplier: userDb.supplier,
     };
   }
 }
