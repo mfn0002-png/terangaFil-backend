@@ -13,32 +13,55 @@ interface PayDunyaInvoiceResponse {
  * Supporte Wave et Orange Money via l'API PayDunya
  */
 export class PaymentService {
-  private readonly baseUrl: string;
-  private readonly masterKey: string;
-  private readonly privateKey: string;
-  private readonly publicKey: string;
-  private readonly token: string;
+  private baseUrl: string;
+  private masterKey: string;
+  private privateKey: string;
+  private publicKey: string;
+  private token: string;
+  private sandboxMode: boolean;
 
   constructor() {
     // Ces clés doivent être dans votre fichier .env
-    this.baseUrl = process.env.PAYDUNYA_BASE_URL || 'https://app.paydunya.com/api/v1';
+    this.baseUrl = process.env.PAYDUNYA_BASE_URL || '';
     this.masterKey = process.env.PAYDUNYA_MASTER_KEY || '';
     this.privateKey = process.env.PAYDUNYA_PRIVATE_KEY || '';
     this.publicKey = process.env.PAYDUNYA_PUBLIC_KEY || '';
     this.token = process.env.PAYDUNYA_TOKEN || '';
+    this.sandboxMode = process.env.PAYDUNYA_SANDBOX_MODE === 'true';
+    
+    if (this.sandboxMode) {
+      console.log('🧪 PayDunya Sandbox Mode activé - Simulation des paiements');
+    }
   }
 
   /**
    * Initialise un paiement et retourne l'URL de redirection
    */
   async initiatePayment(params: {
+    orderId: number;
     amount: number;
     description: string;
-    orderId: number;
     customerName: string;
     customerEmail?: string;
     customerPhone: string;
   }): Promise<{ paymentUrl: string; token: string }> {
+    // Mode Sandbox : Simulation sans appel API réel
+    if (this.sandboxMode) {
+      const sandboxToken = `sandbox_${Date.now()}_${params.orderId}`;
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+      
+      console.log(`🧪 [SANDBOX] Paiement simulé pour commande #${params.orderId}`);
+      console.log(`   Montant: ${params.amount} FCFA`);
+      console.log(`   Client: ${params.customerName} (${params.customerPhone})`);
+      
+      // Simuler une page de paiement qui redirige automatiquement après 3 secondes
+      return {
+        paymentUrl: `${backendUrl}/api/payment/sandbox?token=${sandboxToken}&orderId=${params.orderId}&amount=${params.amount}&returnUrl=${frontendUrl}/checkout/success`,
+        token: sandboxToken,
+      };
+    }
+    
     try {
       const response = await axios.post<PayDunyaInvoiceResponse>(
         `${this.baseUrl}/checkout-invoice/create`,
@@ -88,9 +111,18 @@ export class PaymentService {
    * Vérifie le statut d'un paiement
    */
   async verifyPayment(token: string): Promise<{
-    status: 'completed' | 'pending' | 'failed';
+    status: string;
     transactionId?: string;
   }> {
+    // Mode Sandbox : Simulation
+    if (this.sandboxMode) {
+      console.log(`🧪 [SANDBOX] Vérification du paiement: ${token}`);
+      return {
+        status: 'completed',
+        transactionId: `sandbox_txn_${Date.now()}`,
+      };
+    }
+    
     try {
       const response = await axios.get<PayDunyaInvoiceResponse>(
         `${this.baseUrl}/checkout-invoice/confirm/${token}`,
@@ -158,6 +190,21 @@ export class PaymentService {
     transactionId?: string;
     error?: string;
   }> {
+    // Mode Sandbox : Simulation
+    if (this.sandboxMode) {
+      console.log(`🧪 [SANDBOX] Versement simulé au fournisseur #${params.supplierId}`);
+      console.log(`   Montant: ${params.amount} FCFA`);
+      console.log(`   Méthode: ${params.method}`);
+      console.log(`   Numéro: ${params.phoneNumber}`);
+      console.log(`   Référence: ${params.reference}`);
+      
+      // Simuler un succès
+      return {
+        success: true,
+        transactionId: `sandbox_payout_${Date.now()}_${params.supplierId}`,
+      };
+    }
+    
     try {
       // PayDunya supporte les transferts directs via l'API "Direct Pay"
       // Documentation: https://paydunya.com/developers/direct-pay

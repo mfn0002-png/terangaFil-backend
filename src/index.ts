@@ -14,6 +14,7 @@ import { premiumRoutes } from './interfaces/http/routes/premiumRoutes.js';
 import { favoriteRoutes } from './interfaces/http/routes/favoriteRoutes.js';
 import { paymentRoutes } from './interfaces/http/routes/paymentRoutes.js';
 import fastifyCors from '@fastify/cors';
+import { sandboxPaymentRoutes } from './interfaces/http/routes/sandboxPaymentRoutes.js';
 
 
 const app = fastify({
@@ -71,6 +72,12 @@ app.register(adminRoutes);
 app.register(premiumRoutes);
 app.register(favoriteRoutes);
 app.register(paymentRoutes);
+
+// Sandbox routes (only if PAYDUNYA_SANDBOX_MODE=true)
+if (process.env.PAYDUNYA_SANDBOX_MODE === 'true') {
+  app.register(sandboxPaymentRoutes);
+  console.log('🧪 Sandbox payment routes registered');
+}
 
 // Route de santé (Health Check)
 app.get('/health', async (request, reply) => {
