@@ -12,10 +12,13 @@ import { orderRoutes } from './interfaces/http/routes/orderRoutes.js';
 import { adminRoutes } from './interfaces/http/routes/adminRoutes.js';
 import { premiumRoutes } from './interfaces/http/routes/premiumRoutes.js';
 import { favoriteRoutes } from './interfaces/http/routes/favoriteRoutes.js';
+import { paymentRoutes } from './interfaces/http/routes/paymentRoutes.js';
 import fastifyCors from '@fastify/cors';
 
 
-const app = fastify().withTypeProvider<ZodTypeProvider>();
+const app = fastify({
+  bodyLimit: 30 * 1024 * 1024, // 30MB
+}).withTypeProvider<ZodTypeProvider>();
 
 // Configuration JWT
 app.register(fastifyJwt, {
@@ -67,6 +70,7 @@ app.register(orderRoutes);
 app.register(adminRoutes);
 app.register(premiumRoutes);
 app.register(favoriteRoutes);
+app.register(paymentRoutes);
 
 // Route de santé (Health Check)
 app.get('/health', async (request, reply) => {

@@ -39,7 +39,7 @@ export class CreateOrderUseCase {
       })
     );
 
-    // 2. Grouper par fournisseur
+    // 2. Grouper par fournisseur et récupérer leur taux de commission
     const supplierGroups = itemsWithDetails.reduce((groups: any, item) => {
       const sId = item.product.supplierId;
       if (!groups[sId]) groups[sId] = [];
@@ -47,15 +47,41 @@ export class CreateOrderUseCase {
       return groups;
     }, {});
 
-    // 3. Calculer les totaux et frais de port par groupe
+    // 3. Calculer les totaux, frais de port et commissions par groupe
     let totalProducts = 0;
     let totalShipping = 0;
-    const supplierInfos: { supplierId: number, shippingPrice: number, items: any[] }[] = [];
+    let totalCommission = 0;
+    const supplierInfos: { 
+      supplierId: number, 
+      shippingPrice: number, 
+      items: any[],
+      commissionRate: number,
+      commissionAmount: number,
+      subtotal: number
+    }[] = [];
 
     for (const supplierIdStr in supplierGroups) {
       const supplierId = Number(supplierIdStr);
       const items = supplierGroups[supplierIdStr];
       const subtotal = items.reduce((sum: number, i: any) => sum + (i.product.price * i.quantity), 0);
+      
+      // Récupérer le taux de commission du fournisseur depuis son abonnement actif
+      const activeSubscription = await (prisma as any).subscription.findFirst({
+        where: {
+          supplierId,
+          status: 'ACTIVE',
+        },
+        include: {
+          plan: true,
+        },
+        orderBy: {
+          startDate: 'desc',
+        },
+      });
+
+      // Taux de commission par défaut si pas d'abonnement (15%)
+      const commissionRate = activeSubscription?.plan?.commissionRate || 15;
+      const commissionAmount = Math.round((subtotal * commissionRate) / 100);
       
       // Calculer les frais de port : somme des frais pour chaque zone unique choisie pour ce fournisseur
       const uniqueZones = new Set();
@@ -76,11 +102,15 @@ export class CreateOrderUseCase {
       
       totalProducts += subtotal;
       totalShipping += supplierShippingPrice;
+      totalCommission += commissionAmount;
       
       supplierInfos.push({
         supplierId,
         shippingPrice: supplierShippingPrice,
-        items
+        items,
+        commissionRate,
+        commissionAmount,
+        subtotal
       });
     }
 

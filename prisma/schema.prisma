@@ -59,6 +59,7 @@ model Supplier {
   shipping      ShippingRate[]
   orders        SupplierOrder[]
   subscriptions Subscription[]
+  payouts       SupplierPayout[]
   logoUrl       String?
   bannerUrl     String?
   
@@ -107,6 +108,64 @@ model Favorite {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
+  @@map("favorites")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  orderId         Int           @unique
+  order           Order         @relation(fields: [orderId], references: [id])
+  amount          Int           // Montant total payé par le client (en FCFA)
+  method          String        // WAVE, OM
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?       // ID de transaction PayDunya
+  paydunyaToken   String?       // Token PayDunya
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model SupplierPayout {
+  id              Int          @id @default(autoincrement())
+  orderId         Int
+  order           Order        @relation(fields: [orderId], references: [id])
+  supplierId      Int
+  supplier        Supplier     @relation(fields: [supplierId], references: [id])
+  
+  // Montants
+  subtotal        Int          // Montant des produits
+  commission      Int          // Commission retenue par la plateforme
+  commissionRate  Int          // Taux de commission appliqué (%)
+  shippingPrice   Int          // Frais de livraison
+  netAmount       Int          // Montant net à verser: (subtotal - commission) + shippingPrice
+  
+  // Informations de paiement
+  paymentMethod   String       // WAVE, OM, BANK
+  phoneNumber     String?      // Numéro du fournisseur
+  status          PayoutStatus @default(PENDING)
+  transactionId   String?      // ID de transaction PayDunya pour le versement
+  errorMessage    String?      // Message d'erreur si échec
+  
+  processedAt     DateTime?    // Date de traitement
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("supplier_payouts")
 }
 
 model ShippingRate {
@@ -129,6 +188,8 @@ model Order {
   customerAddress   String?
   items             OrderItem[]
   suppliers         SupplierOrder[]
+  payment           Payment?
+  payouts           SupplierPayout[]
   user              User             @relation(fields: [userId], references: [id])
   createdAt         DateTime         @default(now())
 }
@@ -160,6 +221,7 @@ model Plan {
   id            Int            @id @default(autoincrement())
   name          String         @unique // FREE, PREMIUM, ULTIMATE
   price         Int            // en centimes
+  commissionRate Int           @default(15) // Pourcentage (ex: 15 pour 15%)
   productLimit  Int            // nombre max de produits
   hasSpotlight  Boolean        @default(false)
   hasStats      Boolean        @default(false)
