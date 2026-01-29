@@ -1,6 +1,6 @@
+import 'dotenv/config';
 import fastify from 'fastify';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider, jsonSchemaTransform } from 'fastify-type-provider-zod';
-import dotenv from 'dotenv';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import fastifyJwt from '@fastify/jwt';
@@ -14,7 +14,6 @@ import { premiumRoutes } from './interfaces/http/routes/premiumRoutes.js';
 import { favoriteRoutes } from './interfaces/http/routes/favoriteRoutes.js';
 import fastifyCors from '@fastify/cors';
 
-dotenv.config();
 
 const app = fastify().withTypeProvider<ZodTypeProvider>();
 

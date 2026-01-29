@@ -36,6 +36,7 @@ export async function userRoutes(app: FastifyInstance) {
         name: z.string().optional(),
         email: z.string().email().optional().nullable(),
         phoneNumber: z.string().optional(),
+        avatarUrl: z.string().optional(),
       }),
     },
     preHandler: [authMiddleware],

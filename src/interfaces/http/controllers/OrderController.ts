@@ -17,7 +17,7 @@ export class OrderController {
     const useCase = new CreateOrderUseCase(orderRepo, productRepo, shippingRepo as any);
 
     try {
-      const order = await useCase.execute({ userId, items });
+      const order = await useCase.execute({ userId, items, customerInfo });
       return reply.status(201).send(order);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });

@@ -19,6 +19,8 @@ export async function supplierRoutes(app: FastifyInstance) {
       body: z.object({
         shopName: z.string().min(3),
         description: z.string().optional(),
+        logoUrl: z.string().optional(),
+        bannerUrl: z.string().optional(),
       }),
     },
   }, supplierController.setupProfile);
@@ -33,6 +35,16 @@ export async function supplierRoutes(app: FastifyInstance) {
         price: z.number().int().positive(),
         stock: z.number().int().nonnegative(),
         category: z.string(),
+        description: z.string().optional(),
+        material: z.string().optional(),
+        weight: z.string().optional(),
+        length: z.string().optional(),
+        usage: z.string().optional(),
+        hookSize: z.string().optional(),
+        colors: z.array(z.string()).optional(),
+        sizes: z.array(z.string()).optional(),
+        imageUrl: z.string().optional(),
+        images: z.array(z.string()).optional(),
       }),
     },
   }, supplierController.addProduct);
@@ -94,6 +106,7 @@ export async function supplierRoutes(app: FastifyInstance) {
         colors: z.array(z.string()).optional(),
         sizes: z.array(z.string()).optional(),
         imageUrl: z.string().optional(),
+        images: z.array(z.string()).optional(),
       }),
     },
   }, supplierController.updateProduct);
@@ -188,4 +201,18 @@ export async function supplierRoutes(app: FastifyInstance) {
       }),
     },
   }, supplierController.updatePaymentSettings);
+
+  app.patch('/supplier/branding', {
+    schema: {
+      description: 'Mettre à jour le branding de la boutique (logo, bannière)',
+      tags: ['Fournisseur'],
+      security: [{ bearerAuth: [] }],
+      body: z.object({
+        shopName: z.string().optional(),
+        description: z.string().optional(),
+        logoUrl: z.string().optional(),
+        bannerUrl: z.string().optional(),
+      }),
+    },
+  }, supplierController.updateBranding);
 }

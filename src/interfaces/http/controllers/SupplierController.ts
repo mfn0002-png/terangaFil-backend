@@ -2,6 +2,9 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { SetupSupplierProfileUseCase } from '../../../application/use-cases/supplier/SetupSupplierProfile.js';
 import { PrismaSupplierRepository } from '../../../infrastructure/repositories/PrismaSupplierRepository.js';
 import { prisma } from '../../../infrastructure/database/prisma.js';
+import { CloudinaryService } from '../../../infrastructure/services/CloudinaryService.js';
+
+const cloudinaryService = new CloudinaryService();
 
 export class SupplierController {
   private getSupplier = async (userId: number) => {
@@ -28,13 +31,29 @@ export class SupplierController {
   setupProfile = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
-    const { shopName, description } = request.body as any;
+    const { shopName, description, logoUrl, bannerUrl } = request.body as any;
 
     const repository = new PrismaSupplierRepository();
     const useCase = new SetupSupplierProfileUseCase(repository);
 
     try {
-      const supplier = await useCase.execute({ userId, shopName, description });
+      let finalLogoUrl = logoUrl;
+      let finalBannerUrl = bannerUrl;
+
+      if (logoUrl && !logoUrl.startsWith('http')) {
+        finalLogoUrl = await cloudinaryService.uploadImage(logoUrl, 'teranga-suppliers/logos');
+      }
+      if (bannerUrl && !bannerUrl.startsWith('http')) {
+        finalBannerUrl = await cloudinaryService.uploadImage(bannerUrl, 'teranga-suppliers/banners');
+      }
+
+      const supplier = await useCase.execute({ 
+        userId, 
+        shopName, 
+        description,
+        logoUrl: finalLogoUrl,
+        bannerUrl: finalBannerUrl
+      });
       return reply.status(201).send(supplier);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
@@ -48,12 +67,20 @@ export class SupplierController {
 
     try {
       const supplier = await this.getSupplier(userId);
+      
+      // Upload images to Cloudinary
+      const uploadedImageUrl = imageUrl ? await cloudinaryService.uploadImage(imageUrl) : null;
+      const uploadedGallery = images && images.length > 0 ? await cloudinaryService.uploadImages(images) : [];
+
       const product = await prisma.product.create({
         data: {
           supplierId: supplier.id,
           name, price, stock, category,
           description, material, weight, length, usage, hookSize,
-          colors, sizes, imageUrl, images
+          colors: colors || [],
+          sizes: sizes || [],
+          imageUrl: uploadedImageUrl,
+          images: uploadedGallery
         }
       });
       return reply.status(201).send(product);
@@ -90,6 +117,15 @@ export class SupplierController {
       // Clean data
       const { id: _, supplierId: __, createdAt: ___, updatedAt: ____, ...updateData } = data;
       
+      // Handle image updates
+      if (updateData.imageUrl && !updateData.imageUrl.startsWith('http')) {
+        updateData.imageUrl = await cloudinaryService.uploadImage(updateData.imageUrl);
+      }
+      if (updateData.images && Array.isArray(updateData.images)) {
+        // Always process to handle mix of URLs and base64, and filter out junk
+        updateData.images = await cloudinaryService.uploadImages(updateData.images);
+      }
+
       const product = await prisma.product.update({
         where: { id, supplierId: supplier.id },
         data: updateData
@@ -217,14 +253,26 @@ export class SupplierController {
 
     try {
       const supplier = await this.getSupplier(userId);
-      const orders = await prisma.supplierOrder.findMany({
-        where: { supplierId: supplier.id },
-        include: { order: true }
-      });
+      const [orders, deliveredOrders] = await Promise.all([
+        prisma.supplierOrder.findMany({ where: { supplierId: supplier.id } }),
+        prisma.supplierOrder.findMany({
+          where: { supplierId: supplier.id, status: 'DELIVERED' },
+          include: { 
+            order: { 
+              include: { 
+                items: {
+                  where: { product: { supplierId: supplier.id } }
+                }
+              }
+            } 
+          }
+        })
+      ]);
 
-      const totalRevenue = orders
-        .filter(o => o.status === 'DELIVERED')
-        .reduce((sum, o) => sum + o.order.total, 0);
+      const totalRevenue = deliveredOrders.reduce((sum, so) => {
+        const itemsTotal = so.order.items.reduce((iSum, item) => iSum + (item.price * item.quantity), 0);
+        return sum + itemsTotal + so.shippingPrice;
+      }, 0);
 
       const lowStockItems = await prisma.product.count({
         where: { supplierId: supplier.id, stock: { lt: 10 } }
@@ -335,6 +383,40 @@ export class SupplierController {
           paymentPhoneNumber: phoneNumber 
         }
       });
+      return reply.send(updated);
+    } catch (error: any) {
+      return reply.status(400).send({ message: error.message });
+    }
+  };
+
+  updateBranding = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { sub } = request.user as { sub: string };
+    const userId = Number(sub);
+    const { shopName, description, logoUrl, bannerUrl } = request.body as any;
+
+    try {
+      const supplier = await this.getSupplier(userId);
+      
+      let finalLogoUrl = logoUrl;
+      let finalBannerUrl = bannerUrl;
+
+      if (logoUrl && !logoUrl.startsWith('http')) {
+        finalLogoUrl = await cloudinaryService.uploadImage(logoUrl, 'teranga-suppliers/logos');
+      }
+      if (bannerUrl && !bannerUrl.startsWith('http')) {
+        finalBannerUrl = await cloudinaryService.uploadImage(bannerUrl, 'teranga-suppliers/banners');
+      }
+
+      const updated = await prisma.supplier.update({
+        where: { id: supplier.id },
+        data: { 
+          shopName, 
+          description,
+          logoUrl: finalLogoUrl,
+          bannerUrl: finalBannerUrl
+        }
+      });
+
       return reply.send(updated);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });

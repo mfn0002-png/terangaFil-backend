@@ -2,6 +2,9 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { prisma } from '../../../infrastructure/database/prisma.js';
 import { CreateUserUseCase } from '../../../application/use-cases/auth/CreateUser.js';
 import { PrismaUserRepository } from '../../../infrastructure/repositories/PrismaUserRepository.js';
+import { CloudinaryService } from '../../../infrastructure/services/CloudinaryService.js';
+
+const cloudinaryService = new CloudinaryService();
 import bcrypt from 'bcrypt';
 
 export class UserController {
@@ -47,12 +50,22 @@ export class UserController {
   updateMe = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
-    const { name, email, phoneNumber } = request.body as any;
+    const { name, email, phoneNumber, avatarUrl } = request.body as any;
 
     try {
+      let finalAvatarUrl = avatarUrl;
+      if (avatarUrl && !avatarUrl.startsWith('http')) {
+        finalAvatarUrl = await cloudinaryService.uploadImage(avatarUrl, 'teranga-avatars');
+      }
+
       const updatedUser = await (prisma as any).user.update({
         where: { id: userId },
-        data: { name, email, phoneNumber }
+        data: { 
+          name, 
+          email, 
+          phoneNumber,
+          avatarUrl: finalAvatarUrl 
+        }
       });
       return reply.send(updatedUser);
     } catch (error: any) {

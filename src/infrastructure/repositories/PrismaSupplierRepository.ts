@@ -3,12 +3,14 @@ import { Supplier, SupplierStatus } from '../../core/entities/Supplier.js';
 import { SupplierRepository } from '../../core/repositories/SupplierRepository.js';
 
 export class PrismaSupplierRepository implements SupplierRepository {
-  async create(data: { userId: number; shopName: string; description?: string }): Promise<Supplier> {
+  async create(data: { userId: number; shopName: string; description?: string; logoUrl?: string; bannerUrl?: string }): Promise<Supplier> {
     const supplier = await prisma.supplier.create({
       data: {
         userId: data.userId,
         shopName: data.shopName,
         description: data.description,
+        logoUrl: data.logoUrl,
+        bannerUrl: data.bannerUrl,
         status: 'PENDING',
       },
     });

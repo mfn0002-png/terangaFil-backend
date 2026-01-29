@@ -4,7 +4,7 @@ import { prisma } from '../../../infrastructure/database/prisma.js';
 export class SetupSupplierProfileUseCase {
   constructor(private supplierRepository: SupplierRepository) {}
 
-  async execute(data: { userId: number; shopName: string; description?: string }) {
+  async execute(data: { userId: number; shopName: string; description?: string; logoUrl?: string; bannerUrl?: string }) {
     const existingSupplier = await this.supplierRepository.findByUserId(data.userId);
     
     if (existingSupplier) {
