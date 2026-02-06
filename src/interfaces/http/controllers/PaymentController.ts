@@ -108,7 +108,7 @@ export class PaymentController {
     reply: FastifyReply
   ) {
     try {
-      const callbackData = request.body;
+      const callbackData = request.body as any;
 
       const result = await this.paymentService.handleCallback(callbackData);
 
@@ -131,6 +131,11 @@ export class PaymentController {
         });
 
         // 2. Créer l'enregistrement Payment
+        console.log(`💳 [PAYMENT] Nouveau paiement reçu pour la commande #${result.orderId}`);
+        console.log(`   - Montant Total: ${order.total} FCFA`);
+        console.log(`   - Transaction ID: ${result.transactionId}`);
+        console.log(`   - Méthode: ${callbackData.payment_method || 'WAVE'}`);
+
         await prisma.payment.create({
           data: {
             orderId: result.orderId,
@@ -195,6 +200,12 @@ export class PaymentController {
 
           const netAmount = (group.subtotal - commission) + shippingPrice;
 
+          console.log(`📦 [DISTRIBUTION] Distribution pour Fournisseur #${supplierId} (${group.supplier.shopName}) :`);
+          console.log(`   - Sous-total: ${group.subtotal} FCFA`);
+          console.log(`   - Commission (${commissionRate}%): ${commission} FCFA`);
+          console.log(`   - Frais de port: ${shippingPrice} FCFA`);
+          console.log(`   - Montant Net à verser: ${netAmount} FCFA`);
+
           // 5. Créer l'enregistrement SupplierPayout
           const payout = await prisma.supplierPayout.create({
             data: {
@@ -214,6 +225,7 @@ export class PaymentController {
           // 6. Effectuer le versement instantané si le fournisseur a configuré ses infos
           if (group.supplier.paymentPhoneNumber && group.supplier.paymentMethod) {
             try {
+              console.log(`💸 [PAYOUT] Envoi du versement vers ${group.supplier.paymentMethod} (${group.supplier.paymentPhoneNumber})...`);
               const payoutResult = await this.paymentService.sendPayout({
                 supplierId,
                 amount: netAmount,
@@ -231,7 +243,7 @@ export class PaymentController {
                     processedAt: new Date(),
                   },
                 });
-                console.log(`✅ Versement réussi pour le fournisseur #${supplierId}: ${netAmount} FCFA`);
+                console.log(`✅ [PAYOUT] Succès - Transaction ID: ${payoutResult.transactionId}`);
               } else {
                 await prisma.supplierPayout.update({
                   where: { id: payout.id },
@@ -240,10 +252,10 @@ export class PaymentController {
                     errorMessage: payoutResult.error,
                   },
                 });
-                console.error(`❌ Échec du versement pour le fournisseur #${supplierId}:`, payoutResult.error);
+                console.error(`❌ [PAYOUT] Échec - Raison: ${payoutResult.error}`);
               }
             } catch (error: any) {
-              console.error(`❌ Erreur lors du versement au fournisseur #${supplierId}:`, error.message);
+              console.error(`❌ [PAYOUT] Erreur système:`, error.message);
               await prisma.supplierPayout.update({
                 where: { id: payout.id },
                 data: {
@@ -253,8 +265,40 @@ export class PaymentController {
               });
             }
           } else {
-            console.warn(`⚠️ Fournisseur #${supplierId} n'a pas configuré ses informations de paiement`);
+            console.warn(`⚠️ [PAYOUT] Annulé - Coordonnées de paiement manquantes pour le fournisseur #${supplierId}`);
           }
+        }
+
+        // 7. Verser la commission totale à l'admin
+        const totalCommission = Object.values(supplierGroups).reduce((sum, group) => {
+          const commissionRate = group.items[0].product.supplier.activeSubscription?.plan?.commissionRate || 15;
+          return sum + Math.round((group.subtotal * commissionRate) / 100);
+        }, 0);
+
+        const adminPhone = process.env.ADMIN_PAYMENT_NUMBER;
+        const adminMethod = process.env.ADMIN_PAYMENT_METHOD || 'WAVE';
+
+        if (adminPhone && totalCommission > 0) {
+          try {
+            console.log(`💰 Tentative de versement de la commission admin: ${totalCommission} FCFA`);
+            const adminPayoutResult = await this.paymentService.sendPayout({
+              supplierId: 0, // 0 pour l'admin
+              amount: totalCommission,
+              phoneNumber: adminPhone,
+              method: adminMethod,
+              reference: `Admin-Commission-Order-${result.orderId}`,
+            });
+
+            if (adminPayoutResult.success) {
+              console.log(`✅ Commission admin versée avec succès: ${totalCommission} FCFA`);
+            } else {
+              console.error(`❌ Échec du versement de la commission admin:`, adminPayoutResult.error);
+            }
+          } catch (error: any) {
+            console.error(`❌ Erreur lors du versement de la commission admin:`, error.message);
+          }
+        } else {
+          console.warn(`⚠️ Versement admin ignoré : Numéro admin non configuré ou commission nulle`);
         }
 
         console.log(`✅ Paiement confirmé pour la commande #${result.orderId}`);
