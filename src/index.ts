@@ -15,6 +15,8 @@ import { favoriteRoutes } from './interfaces/http/routes/favoriteRoutes.js';
 import { paymentRoutes } from './interfaces/http/routes/paymentRoutes.js';
 import fastifyCors from '@fastify/cors';
 import { sandboxPaymentRoutes } from './interfaces/http/routes/sandboxPaymentRoutes.js';
+import { notificationRoutes } from './interfaces/http/routes/notificationRoutes.js';
+
 
 
 const app = fastify({
@@ -72,6 +74,8 @@ app.register(adminRoutes);
 app.register(premiumRoutes);
 app.register(favoriteRoutes);
 app.register(paymentRoutes);
+app.register(notificationRoutes);
+
 
 // Sandbox routes (only if PAYDUNYA_SANDBOX_MODE=true)
 if (process.env.PAYDUNYA_SANDBOX_MODE === 'true') {

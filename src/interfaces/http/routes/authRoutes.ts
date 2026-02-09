@@ -30,4 +30,15 @@ export async function authRoutes(app: FastifyInstance) {
       }),
     },
   }, authController.login);
+
+  app.post('/auth/setup-password', {
+    schema: {
+      description: 'Configurer le mot de passe pour un compte invité',
+      tags: ['Authentification'],
+      body: z.object({
+        token: z.string(),
+        password: z.string().min(6),
+      }),
+    },
+  }, authController.setupPassword);
 }

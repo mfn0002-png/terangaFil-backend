@@ -45,8 +45,11 @@ model User {
   supplier    Supplier?
   orders      Order[]
   avatarUrl   String?
+  setupToken  String?  @unique // Pour l'invitation admin
+  isPasswordSet Boolean @default(true) // False pour les invités par l'admin
   createdAt   DateTime @default(now())
   favorites   Favorite[]
+  notifications Notification[]
 }
 
 model Supplier {
@@ -190,6 +193,7 @@ model Order {
   suppliers         SupplierOrder[]
   payment           Payment?
   payouts           SupplierPayout[]
+  disputes          Dispute[]
   user              User             @relation(fields: [userId], references: [id])
   createdAt         DateTime         @default(now())
 }
@@ -252,4 +256,43 @@ model SubscriptionPayment {
   status         String       // SUCCESS, FAILED, PENDING
   invoiceUrl     String?
   createdAt      DateTime     @default(now())
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REFUNDED
+}
+
+model Dispute {
+  id          Int           @id @default(autoincrement())
+  orderId     Int
+  order       Order         @relation(fields: [orderId], references: [id])
+  reason      String
+  description String
+  status      DisputeStatus @default(OPEN)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  user      User             @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  link      String?          // Lien optionnel vers une page (ex: /dashboard/orders/123)
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
 }

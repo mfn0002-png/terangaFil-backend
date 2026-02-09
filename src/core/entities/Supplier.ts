@@ -11,6 +11,9 @@ export class Supplier {
     public readonly shopName: string,
     public readonly description: string | null,
     public readonly status: SupplierStatus,
-    public readonly createdAt: Date
+    public readonly createdAt: Date,
+    public readonly logoUrl?: string | null,
+    public readonly bannerUrl?: string | null,
+    public readonly shipping?: any[]
   ) {}
 }
