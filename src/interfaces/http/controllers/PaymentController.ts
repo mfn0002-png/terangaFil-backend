@@ -1,6 +1,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { PaymentService } from '../../../infrastructure/services/PaymentService.js';
 import { prisma } from '../../../infrastructure/database/prisma.js';
+import { NotificationService, NotificationType } from '../../../infrastructure/services/NotificationService.js';
+
+const notificationService = new NotificationService();
 
 export class PaymentController {
   private paymentService: PaymentService;
@@ -147,6 +150,15 @@ export class PaymentController {
           },
         });
 
+        // 2.5 Notification au Client
+        await notificationService.send({
+          userId: order.userId,
+          title: 'Paiement Confirmé',
+          message: `Votre paiement de ${order.total} FCFA pour la commande #${order.id} a été reçu avec succès.`,
+          type: NotificationType.SUCCESS,
+          link: `/dashboard/client/orders/${order.id}`
+        });
+
         // 3. Grouper les items par fournisseur et calculer les versements
         const supplierGroups: Record<number, any> = {};
         
@@ -222,6 +234,15 @@ export class PaymentController {
             },
           });
 
+          // 5.5 Notification au Fournisseur pour la nouvelle commande
+          await notificationService.send({
+            userId: group.supplier.userId,
+            title: 'Nouvelle Commande Reçue',
+            message: `Vous avez reçu une nouvelle commande (#${order.id}) pour un montant de ${group.subtotal} FCFA.`,
+            type: NotificationType.INFO,
+            link: `/dashboard/supplier/orders/${order.id}`
+          });
+
           // 6. Effectuer le versement instantané si le fournisseur a configuré ses infos
           if (group.supplier.paymentPhoneNumber && group.supplier.paymentMethod) {
             try {
@@ -244,6 +265,14 @@ export class PaymentController {
                   },
                 });
                 console.log(`✅ [PAYOUT] Succès - Transaction ID: ${payoutResult.transactionId}`);
+
+                // Notification au Fournisseur pour le versement réussi
+                await notificationService.send({
+                  userId: group.supplier.userId,
+                  title: 'Versement Effectué',
+                  message: `Le versement de ${netAmount} FCFA pour la commande #${order.id} a été envoyé sur votre compte ${group.supplier.paymentMethod}.`,
+                  type: NotificationType.SUCCESS
+                });
               } else {
                 await prisma.supplierPayout.update({
                   where: { id: payout.id },
@@ -253,6 +282,18 @@ export class PaymentController {
                   },
                 });
                 console.error(`❌ [PAYOUT] Échec - Raison: ${payoutResult.error}`);
+
+                // Notification à l'ADMIN pour l'échec du versement
+                const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
+                for (const admin of admins) {
+                  await notificationService.send({
+                    userId: admin.id,
+                    title: 'Échec de Versement',
+                    message: `Le versement de ${netAmount} FCFA pour le fournisseur ${group.supplier.shopName} (Commande #${order.id}) a échoué.`,
+                    type: NotificationType.ERROR,
+                    link: `/dashboard/admin/commissions`
+                  });
+                }
               }
             } catch (error: any) {
               console.error(`❌ [PAYOUT] Erreur système:`, error.message);

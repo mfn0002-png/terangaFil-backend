@@ -21,6 +21,18 @@ export class AdminController {
 
     try {
       const supplier = await useCase.execute(id, status);
+
+      // Notification au Fournisseur
+      await notificationService.send({
+        userId: supplier.userId,
+        title: status === 'ACTIVE' ? 'Compte Validé' : 'Compte Rejeté',
+        message: status === 'ACTIVE' 
+          ? 'Votre compte fournisseur a été validé ! Vous pouvez désormais commencer à vendre.' 
+          : 'Votre demande d\'inscription a été refusée. Veuillez contacter le support pour plus d\'informations.',
+        type: status === 'ACTIVE' ? NotificationType.SUCCESS : NotificationType.ERROR,
+        link: status === 'ACTIVE' ? '/dashboard/supplier' : undefined
+      });
+
       return reply.send(supplier);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
@@ -118,7 +130,19 @@ export class AdminController {
       const product = await prisma.product.update({
         where: { id: Number(id) },
         data: { isActive },
+        include: { supplier: true }
       });
+
+      // Notification au Fournisseur si le produit est désactivé par l'admin
+      if (!isActive) {
+        await notificationService.send({
+          userId: product.supplier.userId,
+          title: 'Produit Désactivé',
+          message: `Votre produit "${product.name}" a été désactivé par l'administrateur pour modération.`,
+          type: NotificationType.WARNING,
+          link: `/dashboard/supplier/products/${product.id}`
+        });
+      }
 
       return reply.send({ success: true, product });
     } catch (error) {

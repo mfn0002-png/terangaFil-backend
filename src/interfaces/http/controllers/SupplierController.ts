@@ -3,8 +3,10 @@ import { SetupSupplierProfileUseCase } from '../../../application/use-cases/supp
 import { PrismaSupplierRepository } from '../../../infrastructure/repositories/PrismaSupplierRepository.js';
 import { prisma } from '../../../infrastructure/database/prisma.js';
 import { CloudinaryService } from '../../../infrastructure/services/CloudinaryService.js';
+import { NotificationService, NotificationType } from '../../../infrastructure/services/NotificationService.js';
 
 const cloudinaryService = new CloudinaryService();
+const notificationService = new NotificationService();
 
 export class SupplierController {
   private getSupplier = async (userId: number) => {
@@ -83,6 +85,19 @@ export class SupplierController {
           images: uploadedGallery
         }
       });
+
+      // Notification aux Admins pour modération
+      const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
+      for (const admin of admins) {
+        await notificationService.send({
+          userId: admin.id,
+          title: 'Nouveau Produit à Modérer',
+          message: `Le fournisseur "${supplier.shopName}" a ajouté un nouveau produit : "${name}".`,
+          type: NotificationType.INFO,
+          link: `/dashboard/admin/products`
+        });
+      }
+
       return reply.status(201).send(product);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
@@ -237,11 +252,39 @@ export class SupplierController {
 
     try {
       const supplier = await this.getSupplier(userId);
-      const order = await prisma.supplierOrder.updateMany({
-        where: { id, supplierId: supplier.id },
+      
+      // Récupérer la commande pour avoir l'ID de l'utilisateur
+      const supplierOrder = await prisma.supplierOrder.findUnique({
+        where: { id },
+        include: { order: true }
+      });
+
+      if (!supplierOrder || supplierOrder.supplierId !== supplier.id) {
+        return reply.status(404).send({ message: 'Commande non trouvée' });
+      }
+
+      await prisma.supplierOrder.update({
+        where: { id },
         data: { status }
       });
-      return reply.send(order);
+
+      // Notification au Client
+      const statusLabels: Record<string, string> = {
+        'PREPARING': 'en cours de préparation',
+        'SHIPPED': 'expédiée',
+        'DELIVERED': 'livrée',
+        'CANCELLED': 'annulée'
+      };
+
+      await notificationService.send({
+        userId: supplierOrder.order.userId,
+        title: `Commande ${statusLabels[status] || status}`,
+        message: `Votre commande #${supplierOrder.order.id} chez ${supplier.shopName} est désormais ${statusLabels[status] || status}.`,
+        type: status === 'DELIVERED' ? NotificationType.SUCCESS : NotificationType.INFO,
+        link: `/dashboard/client/orders/${supplierOrder.order.id}`
+      });
+
+      return reply.send({ success: true });
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
     }

@@ -4,6 +4,9 @@ import { LoginUserUseCase } from '../../../application/use-cases/auth/LoginUser.
 import { PrismaUserRepository } from '../../../infrastructure/repositories/PrismaUserRepository.js';
 import { prisma } from '../../../infrastructure/database/prisma.js';
 import bcrypt from 'bcrypt';
+import { NotificationService, NotificationType } from '../../../infrastructure/services/NotificationService.js';
+
+const notificationService = new NotificationService();
 
 export class AuthController {
   async register(request: FastifyRequest, reply: FastifyReply) {
@@ -14,6 +17,20 @@ export class AuthController {
     try {
       const user = await registerUseCase.execute({ name, email, phoneNumber, password, role });
       
+      // Notification aux Admins si c'est un fournisseur
+      if (role === 'SUPPLIER') {
+        const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
+        for (const admin of admins) {
+          await notificationService.send({
+            userId: admin.id,
+            title: 'Nouvelle Inscription Vendeur',
+            message: `Le fournisseur "${name}" vient de s'inscrire et attend votre validation.`,
+            type: NotificationType.INFO,
+            link: `/dashboard/admin/suppliers`
+          });
+        }
+      }
+
       // Auto-login : générer le token directement après l'inscription
       const token = await reply.jwtSign({
         sub: user.id,

@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '../database/prisma.js';
+import { webSocketService } from './WebSocketService.js';
 
 export enum NotificationType {
   INFO = 'INFO',
@@ -39,9 +40,11 @@ export class NotificationService {
     const { userId, title, message, type = NotificationType.INFO, link, emailOnly = false } = options;
 
     try {
+      let notification = null;
+
       // 1. In-App Notification (si pas emailOnly)
       if (!emailOnly) {
-        await (prisma as any).notification.create({
+        notification = await (prisma as any).notification.create({
           data: {
             userId,
             title,
@@ -51,17 +54,24 @@ export class NotificationService {
           },
         });
         console.log(`🔔 [NOTIFICATION] In-App envoyée à l'utilisateur #${userId}: ${title}`);
+
+        // 2. Temps Réel via WebSocket
+        webSocketService.sendToUser(userId, {
+          id: notification.id,
+          title,
+          message,
+          type,
+          link,
+          createdAt: notification.createdAt
+        });
       }
 
-      // 2. Email Notification
+      // 3. Email Notification
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user?.email) {
         await this.sendEmail(user.email, title, message, link);
         console.log(`📧 [EMAIL] Envoyé à ${user.email}: ${title}`);
       }
-
-      // 3. SMS (Futur - Placeholder)
-      // if (user?.phoneNumber) await this.sendSMS(user.phoneNumber, message);
 
     } catch (error: any) {
       console.error(`❌ [NOTIFICATION ERROR]`, error.message);
