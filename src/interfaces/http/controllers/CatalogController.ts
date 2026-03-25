@@ -7,18 +7,31 @@ import { PrismaSupplierRepository } from '../../../infrastructure/repositories/P
 
 export class CatalogController {
   async listProducts(request: FastifyRequest, reply: FastifyReply) {
-    const { supplierId, category, minPrice, maxPrice } = request.query as any;
+    const { supplierId, category, minPrice, maxPrice, page: pageStr, limit: limitStr } = request.query as any;
+
+    const page = Number(pageStr) || 1;
+    const limit = Number(limitStr) || 12;
 
     const useCase = new ListProductsUseCase();
 
-    const products = await useCase.execute({
+    const result = await useCase.execute({
       supplierId: supplierId ? Number(supplierId) : undefined,
       category,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      page,
+      limit
     });
 
-    return reply.send(products);
+    return reply.send({
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages
+      }
+    });
   }
 
   async getSupplier(request: FastifyRequest, reply: FastifyReply) {
@@ -37,10 +50,28 @@ export class CatalogController {
   }
 
   async listSuppliers(request: FastifyRequest, reply: FastifyReply) {
+    const { page: pageStr, limit: limitStr } = request.query as any;
+    const page = Number(pageStr) || 1;
+    const limit = Number(limitStr) || 12;
+    const skip = (page - 1) * limit;
+
     const repository = new PrismaSupplierRepository();
     const useCase = new ListSuppliersUseCase(repository);
-    const suppliers = await useCase.execute();
-    return reply.send(suppliers);
+    const allSuppliers = await useCase.execute();
+    
+    // Manual pagination for now as the usecase returns all ACTIVE suppliers
+    const total = allSuppliers.length;
+    const paginatedSuppliers = allSuppliers.slice(skip, skip + limit);
+
+    return reply.send({
+      data: paginatedSuppliers,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   }
 
   async getProduct(request: FastifyRequest, reply: FastifyReply) {

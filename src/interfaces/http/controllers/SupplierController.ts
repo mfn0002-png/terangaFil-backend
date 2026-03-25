@@ -154,13 +154,35 @@ export class SupplierController {
   listMyProducts = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
+    const { page: pageStr, limit: limitStr } = request.query as any;
+    
+    const page = Number(pageStr) || 1;
+    const limit = Number(limitStr) || 10;
+    const skip = (page - 1) * limit;
+
     try {
       const supplier = await this.getSupplier(userId);
-      const products = await prisma.product.findMany({
-        where: { supplierId: supplier.id },
-        orderBy: { createdAt: 'desc' }
+      const [products, total] = await Promise.all([
+        prisma.product.findMany({
+          where: { supplierId: supplier.id },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.product.count({
+          where: { supplierId: supplier.id }
+        })
+      ]);
+
+      return reply.send({
+        data: products,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
       });
-      return reply.send(products);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
     }
@@ -221,24 +243,46 @@ export class SupplierController {
   listMyOrders = async (request: FastifyRequest, reply: FastifyReply) => {
     const { sub } = request.user as { sub: string };
     const userId = Number(sub);
+    const { page: pageStr, limit: limitStr } = request.query as any;
+    
+    const page = Number(pageStr) || 1;
+    const limit = Number(limitStr) || 10;
+    const skip = (page - 1) * limit;
+
     try {
       const supplier = await this.getSupplier(userId);
-      const orders = await prisma.supplierOrder.findMany({
-        where: { supplierId: supplier.id },
-        include: { 
-          order: { 
-            include: { 
-              user: true,
-              items: {
-                where: { product: { supplierId: supplier.id } },
-                include: { product: true }
-              }
+      const [orders, total] = await Promise.all([
+        prisma.supplierOrder.findMany({
+          where: { supplierId: supplier.id },
+          include: { 
+            order: { 
+              include: { 
+                user: true,
+                items: {
+                  where: { product: { supplierId: supplier.id } },
+                  include: { product: true }
+                }
+              } 
             } 
-          } 
-        },
-        orderBy: { order: { createdAt: 'desc' } }
+          },
+          orderBy: { order: { createdAt: 'desc' } },
+          skip,
+          take: limit
+        }),
+        prisma.supplierOrder.count({
+          where: { supplierId: supplier.id }
+        })
+      ]);
+
+      return reply.send({
+        data: orders,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
       });
-      return reply.send(orders);
     } catch (error: any) {
       return reply.status(400).send({ message: error.message });
     }
