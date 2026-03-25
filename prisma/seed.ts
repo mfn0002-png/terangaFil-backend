@@ -8,7 +8,16 @@ const prisma = new PrismaClient();
 const FIRST_NAMES = ['Awa', 'Fatou', 'Mamadou', 'Koffi', 'Mariama', 'Ousmane', 'Seydou', 'Aminata', 'Cheikh', 'Ndéye'];
 const LAST_NAMES = ['Diop', 'Fall', 'Ndiaye', 'Sall', 'Gueye', 'Touré', 'Sarr', 'Cissé', 'Nguessan', 'Bâ'];
 const CATEGORIES = ['Fils', 'Crochets', 'Aiguilles', 'Kits', 'Accessoires'];
-const COLORS = ['Naturel', 'Rouge carmin', 'Bleu indigo', 'Jaune moutarde', 'Gris anthracite', 'Rose bonbon', 'Vert olive', 'Noir profond'];
+const COLORS = [
+  { name: 'Naturel', hex: '#EAE1D0' },
+  { name: 'Rouge carmin', hex: '#960018' },
+  { name: 'Bleu indigo', hex: '#00416A' },
+  { name: 'Jaune moutarde', hex: '#FFDB58' },
+  { name: 'Gris anthracite', hex: '#303030' },
+  { name: 'Rose bonbon', hex: '#F9429E' },
+  { name: 'Vert olive', hex: '#708238' },
+  { name: 'Noir profond', hex: '#000000' }
+];
 const SIZES = ['S', 'M', 'L', 'XL', '250m', '500m', '100g', '50g'];
 const SHOP_ADJECTIVES = ['Filatures', 'Ateliers', 'Mercerie', 'Créations', 'Tricot', 'Laine', 'Fibres'];
 const CITIES = ['Dakar', 'Saint-Louis', 'Thiès', 'Abidjan', 'Bamako'];
@@ -120,7 +129,7 @@ async function main() {
       productPromises.push(prisma.product.create({
         data: {
           supplierId: supplier.id,
-          name: `${category} Premium ${j} - ${rand(COLORS)}`,
+          name: `${category} Premium ${j} - ${rand(COLORS).name}`,
           price: randInt(10, 150) * 100, // prix entre 1000 et 15000 FCFA
           stock: randInt(0, 100),
           category: category,

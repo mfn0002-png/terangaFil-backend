@@ -94,7 +94,7 @@ model Product {
   length      String?
   usage       String?
   hookSize    String?
-  colors      String[]
+  colors      Json     @default("[]")
   sizes       String[]
 
   items       OrderItem[]
