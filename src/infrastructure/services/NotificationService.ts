@@ -1,13 +1,10 @@
 import nodemailer from 'nodemailer';
 import { prisma } from '../database/prisma.js';
-import { webSocketService } from './WebSocketService.js';
+import { INotificationProvider, NotificationType } from './INotificationProvider.js';
+import { WebSocketNotificationProvider } from './WebSocketNotificationProvider.js';
+import { FirebaseNotificationProvider } from './FirebaseNotificationProvider.js';
 
-export enum NotificationType {
-  INFO = 'INFO',
-  SUCCESS = 'SUCCESS',
-  WARNING = 'WARNING',
-  ERROR = 'ERROR'
-}
+export { NotificationType };
 
 export interface SendNotificationOptions {
   userId: number;
@@ -20,6 +17,7 @@ export interface SendNotificationOptions {
 
 export class NotificationService {
   private transporter;
+  private provider: INotificationProvider;
 
   constructor() {
     this.transporter = nodemailer.createTransport({
@@ -31,6 +29,15 @@ export class NotificationService {
         pass: process.env.SMTP_PASS,
       },
     });
+
+    // Sélection du provider via variable d'environnement
+    const providerType = process.env.NOTIFICATION_PROVIDER || 'websocket';
+    if (providerType === 'firebase') {
+      this.provider = new FirebaseNotificationProvider();
+    } else {
+      this.provider = new WebSocketNotificationProvider();
+    }
+    console.log(`🔔 [NOTIFICATION] Provider actif: ${providerType}`);
   }
 
   /**
@@ -44,19 +51,19 @@ export class NotificationService {
 
       // 1. In-App Notification (si pas emailOnly)
       if (!emailOnly) {
-        notification = await (prisma as any).notification.create({
+        notification = await prisma.notification.create({
           data: {
             userId,
             title,
             message,
-            type: type as any,
+            type: type,
             link,
           },
         });
-        console.log(`🔔 [NOTIFICATION] In-App envoyée à l'utilisateur #${userId}: ${title}`);
+        console.log(`🔔 [NOTIFICATION] In-App enregistrée pour l'utilisateur #${userId}: ${title}`);
 
-        // 2. Temps Réel via WebSocket
-        webSocketService.sendToUser(userId, {
+        // 2. Temps Réel via Provider (WebSocket ou Firebase)
+        await this.provider.sendNotification(userId, {
           id: notification.id,
           title,
           message,

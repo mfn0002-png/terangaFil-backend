@@ -41,6 +41,7 @@ model User {
   email       String?  @unique
   phoneNumber String   @unique
   password    String
+  fcmToken    String?  // Firebase Cloud Messaging token
   role        Role
   supplier    Supplier?
   orders      Order[]

@@ -7,8 +7,9 @@ export class NotificationController {
    */
   async listMyNotifications(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const userId = (request.user as any).id;
-      const notifications = await (prisma as any).notification.findMany({
+      const user = request.user as { id: number };
+      const userId = user.id;
+      const notifications = await prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
       });
@@ -24,9 +25,10 @@ export class NotificationController {
   async markAsRead(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     try {
       const { id } = request.params;
-      const userId = (request.user as any).id;
+      const user = request.user as { id: number };
+      const userId = user.id;
 
-      await (prisma as any).notification.update({
+      await prisma.notification.update({
         where: { 
           id: Number(id),
           userId // Sécurité : vérifier que la notification appartient à l'utilisateur
@@ -45,14 +47,41 @@ export class NotificationController {
    */
   async markAllAsRead(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const userId = (request.user as any).id;
-      await (prisma as any).notification.updateMany({
+      const user = request.user as { id: number };
+      const userId = user.id;
+      await prisma.notification.updateMany({
         where: { userId, isRead: false },
         data: { isRead: true },
       });
       return reply.send({ success: true });
     } catch (error) {
       return reply.status(500).send({ message: 'Erreur lors de la mise à jour des notifications' });
+    }
+  }
+
+  /**
+   * Met à jour le token FCM de l'utilisateur
+   */
+  async updateFcmToken(request: FastifyRequest<{ Body: { token: string } }>, reply: FastifyReply) {
+    try {
+      const fcmToken = request.body.token;
+      const user = request.user as { id: number };
+      const userId = user.id;
+
+      if (!fcmToken) {
+        return reply.status(400).send({ message: 'Token manquant' });
+      }
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { fcmToken },
+      });
+
+      console.log(`📡 [FCM] Token mis à jour pour l'utilisateur #${userId}`);
+      return reply.send({ success: true });
+    } catch (error) {
+      console.error('❌ [FCM ERROR] Erreur lors de la mise à jour du token:', error);
+      return reply.status(500).send({ message: 'Erreur lors de la mise à jour du token FCM' });
     }
   }
 }

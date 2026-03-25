@@ -1,26 +1,43 @@
 // @ts-nocheck
-import { PrismaClient, Role, SupplierStatus, SubscriptionStatus } from '@prisma/client';
+import { PrismaClient, Role, SupplierStatus, SubscriptionStatus, OrderStatus } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+// --- DONNÉES DE GÉNÉRATION ALÉATOIRE ---
+const FIRST_NAMES = ['Awa', 'Fatou', 'Mamadou', 'Koffi', 'Mariama', 'Ousmane', 'Seydou', 'Aminata', 'Cheikh', 'Ndéye'];
+const LAST_NAMES = ['Diop', 'Fall', 'Ndiaye', 'Sall', 'Gueye', 'Touré', 'Sarr', 'Cissé', 'Nguessan', 'Bâ'];
+const CATEGORIES = ['Fils', 'Crochets', 'Aiguilles', 'Kits', 'Accessoires'];
+const COLORS = ['Naturel', 'Rouge carmin', 'Bleu indigo', 'Jaune moutarde', 'Gris anthracite', 'Rose bonbon', 'Vert olive', 'Noir profond'];
+const SIZES = ['S', 'M', 'L', 'XL', '250m', '500m', '100g', '50g'];
+const SHOP_ADJECTIVES = ['Filatures', 'Ateliers', 'Mercerie', 'Créations', 'Tricot', 'Laine', 'Fibres'];
+const CITIES = ['Dakar', 'Saint-Louis', 'Thiès', 'Abidjan', 'Bamako'];
+
+const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randBool = () => Math.random() > 0.5;
+
 async function main() {
-  console.log('🌱 Début du seeding amélioré...');
+  console.log('🌱 Début du seeding massif...');
 
   // 1. CLEAR DATABASE
+  console.log('🧹 Nettoyage de la base de données (ceci peut prendre quelques secondes)...');
   await prisma.subscriptionPayment.deleteMany();
   await prisma.subscription.deleteMany();
   await prisma.supplierOrder.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.supplierPayout.deleteMany();
+  await prisma.dispute.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.favorite.deleteMany();
   await prisma.product.deleteMany();
   await prisma.shippingRate.deleteMany();
   await prisma.supplier.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.user.deleteMany();
   await prisma.plan.deleteMany();
-
-  console.log('🧹 Base de données nettoyée.');
+  console.log('✅ Base de données nettoyée.');
 
   // 2. PASSWORD HASH
   const passwordHash = await bcrypt.hash('password123', 10);
@@ -28,7 +45,7 @@ async function main() {
   // 3. ADMIN REQUESTED
   await prisma.user.create({
     data: {
-      name: 'Téranga Fil',
+      name: 'Téranga Fil Admin',
       email: 'mfn0002@gmail.com',
       phoneNumber: '789147683',
       password: passwordHash,
@@ -39,116 +56,167 @@ async function main() {
 
   // 4. PLANS
   const plans = [
-    { name: 'FREE', price: 0, productLimit: 5, hasSpotlight: false, hasStats: false, hasBadge: false, priorityLevel: 0 },
-    { name: 'PREMIUM', price: 5000, productLimit: 50, hasSpotlight: true, hasStats: true, hasBadge: true, priorityLevel: 1 },
-    { name: 'ULTIMATE', price: 15000, productLimit: 1000, hasSpotlight: true, hasStats: true, hasBadge: true, priorityLevel: 2 },
+    { name: 'FREE', price: 0, productLimit: 5, hasSpotlight: false, hasStats: false, hasBadge: false, priorityLevel: 0, commissionRate: 15 },
+    { name: 'PREMIUM', price: 5000, productLimit: 50, hasSpotlight: true, hasStats: true, hasBadge: true, priorityLevel: 1, commissionRate: 10 },
+    { name: 'ULTIMATE', price: 15000, productLimit: 1000, hasSpotlight: true, hasStats: true, hasBadge: true, priorityLevel: 2, commissionRate: 5 },
   ];
 
   for (const plan of plans) {
     await prisma.plan.create({ data: plan });
   }
-  
   const createdPlans = await prisma.plan.findMany();
-  const freePlan = createdPlans.find(p => p.name === 'FREE');
-  const premiumPlan = createdPlans.find(p => p.name === 'PREMIUM');
-  const ultimatePlan = createdPlans.find(p => p.name === 'ULTIMATE');
-
   console.log('✅ Plans créés.');
 
-  // 5. SUPPLIERS & PRODUCTS
-  
-  // -- Supplier 1: Dakar Fil --
-  const s1User = await prisma.user.create({
-    data: { name: 'Awa Diop', email: 'awa@dakarfil.com', phoneNumber: '770000001', password: passwordHash, role: Role.SUPPLIER },
-  });
-  const s1 = await prisma.supplier.create({
-    data: {
-      userId: s1User.id,
-      shopName: 'Dakar Fil',
-      description: 'Spécialiste du fil de coton bio, teint à la main avec des pigments naturels.',
-      status: SupplierStatus.ACTIVE,
-      logoUrl: 'https://images.unsplash.com/photo-1605256585681-455837661b18?q=80&w=200&auto=format&fit=crop',
-      bannerUrl: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=1200&auto=format&fit=crop',
-      paymentMethod: 'WAVE',
-      paymentPhoneNumber: '770000001'
-    },
-  });
-  await prisma.subscription.create({ data: { supplierId: s1.id, planId: premiumPlan.id, status: SubscriptionStatus.ACTIVE } });
+  // 5. FOURNISSEURS MASSIFS (15)
+  console.log('🏭 Création des fournisseurs et de leurs catalogues...');
+  const suppliersInfo = [];
 
-  // -- Supplier 2: Mercerie Abidjan --
-  const s2User = await prisma.user.create({
-    data: { name: 'Koffi Nguessan', email: 'contact@mercerieabidjan.ci', phoneNumber: '22507070707', password: passwordHash, role: Role.SUPPLIER },
-  });
-  const s2 = await prisma.supplier.create({
-    data: {
-      userId: s2User.id,
-      shopName: 'Mercerie Abidjan',
-      description: 'Tout pour le crochet et le tricot moderne. Importateurs exclusifs.',
-      status: SupplierStatus.ACTIVE,
-      logoUrl: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=200&auto=format&fit=crop',
-      bannerUrl: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?q=80&w=1200&auto=format&fit=crop',
-      paymentMethod: 'OM',
-      paymentPhoneNumber: '22507070707'
-    },
-  });
-  await prisma.subscription.create({ data: { supplierId: s2.id, planId: ultimatePlan.id, status: SubscriptionStatus.ACTIVE } });
-  
-  // -- Products --
-  const products = [
-    { 
-      supplierId: s1.id, 
-      name: 'Fil de coton bio - Naturel', 
-      price: 3500, 
-      stock: 150, 
-      category: 'Fils', 
-      isActive: true,
-      hookSize: '3.5mm',
-      material: '100% Coton bio',
-      weight: '100g',
-      length: '250m'
-    },
-    { 
-      supplierId: s1.id, 
-      name: 'Crochet Bambou', 
-      price: 2500, 
-      stock: 8, 
-      category: 'Crochets', 
-      isActive: true,
-      hookSize: '5.0mm'
-    },
-    // ... basic products ...
-  ];
+  for (let i = 1; i <= 15; i++) {
+    const firstName = rand(FIRST_NAMES);
+    const lastName = rand(LAST_NAMES);
+    const shopName = `${rand(SHOP_ADJECTIVES)} ${lastName} ${rand(CITIES)}`;
+    
+    // Création du User Fournisseur
+    const user = await prisma.user.create({
+      data: { 
+        name: `${firstName} ${lastName}`, 
+        email: `fournisseur${i}@yopmail.com`, 
+        phoneNumber: `77000${i.toString().padStart(4, '0')}`, 
+        password: passwordHash, 
+        role: Role.SUPPLIER 
+      },
+    });
 
-  for (const p of products) {
-    await prisma.product.create({ data: p });
+    // Création de la boutique
+    const supplier = await prisma.supplier.create({
+      data: {
+        userId: user.id,
+        shopName: shopName,
+        description: `Boutique de qualité par ${firstName}. Nous vendons les meilleurs fils de ${rand(CITIES)}.`,
+        status: SupplierStatus.ACTIVE,
+        logoUrl: `https://picsum.photos/seed/logo${i}/200/200`,
+        bannerUrl: `https://picsum.photos/seed/banner${i}/1200/400`,
+        paymentMethod: randBool() ? 'WAVE' : 'OM',
+        paymentPhoneNumber: `77000${i.toString().padStart(4, '0')}`
+      },
+    });
+
+    // Souscription
+    const assignedPlan = rand(createdPlans);
+    await prisma.subscription.create({ 
+      data: { supplierId: supplier.id, planId: assignedPlan.id, status: SubscriptionStatus.ACTIVE } 
+    });
+
+    suppliersInfo.push(supplier);
+
+    // 6. PRODUITS POUR CE FOURNISSEUR (5 à 20 produits)
+    const nbProducts = randInt(5, 20);
+    const productPromises = [];
+    
+    for (let j = 1; j <= nbProducts; j++) {
+      const category = rand(CATEGORIES);
+      const isSpotlight = assignedPlan.name !== 'FREE' && randInt(1, 10) > 8; // 20% de chances d'être en vedette si payant
+      
+      productPromises.push(prisma.product.create({
+        data: {
+          supplierId: supplier.id,
+          name: `${category} Premium ${j} - ${rand(COLORS)}`,
+          price: randInt(10, 150) * 100, // prix entre 1000 et 15000 FCFA
+          stock: randInt(0, 100),
+          category: category,
+          isActive: true,
+          isSpotlight: isSpotlight,
+          imageUrl: `https://picsum.photos/seed/prod${supplier.id}${j}/800/800`,
+          images: [
+             `https://picsum.photos/seed/prodA${supplier.id}${j}/800/800`,
+             `https://picsum.photos/seed/prodB${supplier.id}${j}/800/800`
+          ],
+          description: `Un excellent article pour vos projets. Qualité exceptionnelle.`,
+          material: randBool() ? '100% Coton bio' : 'Acrylique / Laine',
+          colors: [rand(COLORS), rand(COLORS)],
+          sizes: [rand(SIZES)]
+        }
+      }));
+    }
+    await Promise.all(productPromises);
+  }
+  console.log(`✅ ${suppliersInfo.length} Fournisseurs et leurs produits créés.`);
+
+  // 7. CLIENTS MASSIFS (20)
+  console.log('🛍️ Création des clients et commandes...');
+  const clients = [];
+  for (let i = 1; i <= 20; i++) {
+    const clientUser = await prisma.user.create({
+      data: { 
+        name: `${rand(FIRST_NAMES)} ${rand(LAST_NAMES)}`, 
+        email: `client${i}@yopmail.com`,
+        phoneNumber: `70111${i.toString().padStart(4, '0')}`, 
+        password: passwordHash, 
+        role: Role.CLIENT 
+      }
+    });
+    clients.push(clientUser);
   }
 
-  // -- Mock Orders for Dashboard --
-  const clientUser = await prisma.user.create({
-    data: { name: 'Mariama Sall', phoneNumber: '771234567', password: passwordHash, role: Role.CLIENT }
-  });
-
-  const order1 = await prisma.order.create({
-    data: {
-      userId: clientUser.id,
-      total: 12500,
-      status: 'CONFIRMED'
+  // 8. COMMANDES (50)
+  const allProducts = await prisma.product.findMany({ select: { id: true, price: true, supplierId: true } });
+  
+  for (let i = 1; i <= 50; i++) {
+    const client = rand(clients);
+    const nbItems = randInt(1, 4);
+    
+    let total = 0;
+    const orderItemsData = [];
+    const suppliersInOrder = new Set();
+    
+    for (let j = 0; j < nbItems; j++) {
+      const prod = rand(allProducts);
+      const qty = randInt(1, 3);
+      const lineTotal = prod.price * qty;
+      total += lineTotal;
+      suppliersInOrder.add(prod.supplierId);
+      
+      orderItemsData.push({
+        productId: prod.id,
+        quantity: qty,
+        price: prod.price,
+      });
     }
-  });
 
-  await prisma.supplierOrder.create({
-    data: {
-      orderId: order1.id,
-      supplierId: s1.id,
-      shippingPrice: 1500,
-      status: 'PREPARING'
+    // Un faux statut aléatoire
+    const statuses = Object.values(OrderStatus);
+    const orderStatus = statuses[randInt(0, statuses.length - 1)];
+
+    const order = await prisma.order.create({
+      data: {
+        userId: client.id,
+        total: total,
+        status: orderStatus,
+        customerFirstName: client.name.split(' ')[0],
+        customerLastName: client.name.split(' ')[1] || 'Fall',
+        customerPhoneNumber: client.phoneNumber,
+        customerAddress: `Rue ${randInt(1, 100)}, ${rand(CITIES)}`,
+        items: {
+          create: orderItemsData
+        }
+      }
+    });
+
+    // Créer les SupplierOrder
+    for (const sId of Array.from(suppliersInOrder)) {
+      await prisma.supplierOrder.create({
+        data: {
+          orderId: order.id,
+          supplierId: sId,
+          shippingPrice: 1500,
+          status: orderStatus // Simplicité: même statut que la commande globale
+        }
+      });
     }
-  });
+  }
 
-  console.log('✅ Commandes de test créées.');
-
-
-  console.log('🌱 Seeding terminé avec succès !');
+  console.log('✅ 50 commandes simulées créées.');
+  console.log('🌱 Seeding terminé avec succès ! Votre Dashboard devrait être magnifique !');
 }
 
 main()

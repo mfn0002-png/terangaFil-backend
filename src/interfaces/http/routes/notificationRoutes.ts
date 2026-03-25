@@ -34,4 +34,15 @@ export async function notificationRoutes(app: FastifyInstance) {
       security: [{ bearerAuth: [] }],
     },
   }, notificationController.markAllAsRead);
+
+  app.patch('/notifications/fcm-token', {
+    schema: {
+      description: 'Mettre à jour le token FCM',
+      tags: ['Notifications'],
+      security: [{ bearerAuth: [] }],
+      body: z.object({
+        token: z.string(),
+      }),
+    },
+  }, notificationController.updateFcmToken);
 }
