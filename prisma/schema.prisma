@@ -50,6 +50,7 @@ model User {
   isPasswordSet Boolean @default(true) // False pour les invités par l'admin
   createdAt   DateTime @default(now())
   favorites   Favorite[]
+  reviews     Review[]
   notifications Notification[]
 }
 
@@ -99,6 +100,7 @@ model Product {
 
   items       OrderItem[]
   favorites   Favorite[]
+  reviews     Review[]
   supplier    Supplier @relation(fields: [supplierId], references: [id])
   createdAt   DateTime @default(now())
 }
@@ -114,6 +116,21 @@ model Favorite {
   @@unique([userId, productId])
   @@map("favorites")
 }
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  rating    Int      // 1 à 5
+  comment   String?
+  user      User     @relation(fields: [userId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("reviews")
+}
+
 
 enum PaymentStatus {
   PENDING

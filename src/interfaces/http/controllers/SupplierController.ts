@@ -307,6 +307,22 @@ export class SupplierController {
         return reply.status(404).send({ message: 'Commande non trouvée' });
       }
 
+      // Validation des transitions d'état
+      const currentStatus = supplierOrder.status;
+      const allowedTransitions: Record<string, string[]> = {
+        'PENDING': ['PREPARING', 'CANCELLED'],
+        'PREPARING': ['SHIPPED', 'CANCELLED'],
+        'SHIPPED': ['DELIVERED', 'CANCELLED'],
+        'DELIVERED': [], // État final
+        'CANCELLED': []  // État final
+      };
+
+      if (!allowedTransitions[currentStatus]?.includes(status)) {
+        return reply.status(400).send({ 
+          message: `Transition de ${currentStatus} vers ${status} non autorisée.` 
+        });
+      }
+
       await prisma.supplierOrder.update({
         where: { id },
         data: { status }

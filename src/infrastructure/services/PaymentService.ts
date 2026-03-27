@@ -57,7 +57,7 @@ export class PaymentService {
       
       // Simuler une page de paiement qui redirige automatiquement après 3 secondes
       return {
-        paymentUrl: `${backendUrl}/api/payment/sandbox?token=${sandboxToken}&orderId=${params.orderId}&amount=${params.amount}&returnUrl=${frontendUrl}/checkout/success`,
+        paymentUrl: `${backendUrl}/payment/sandbox?token=${sandboxToken}&orderId=${params.orderId}&amount=${params.amount}&returnUrl=${frontendUrl}/checkout/success`,
         token: sandboxToken,
       };
     }
@@ -80,7 +80,7 @@ export class PaymentService {
           actions: {
             cancel_url: `${process.env.FRONTEND_URL}/checkout/cancel`,
             return_url: `${process.env.FRONTEND_URL}/checkout/success`,
-            callback_url: `${process.env.BACKEND_URL}/api/payment/callback`,
+            callback_url: `${process.env.BACKEND_URL}/payment/callback`,
           },
         },
         {
@@ -159,7 +159,7 @@ export class PaymentService {
     status: 'completed' | 'failed';
     transactionId?: string;
   }> {
-    const orderId = data.custom_data?.order_id;
+    const orderId = data.custom_data?.order_id || data.order_id;
     
     if (data.status === 'completed') {
       return {

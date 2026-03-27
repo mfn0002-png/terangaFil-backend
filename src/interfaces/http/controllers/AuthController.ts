@@ -45,6 +45,7 @@ export class AuthController {
   }
 
   async login(request: FastifyRequest, reply: FastifyReply) {
+    console.log('🔑 SECRET LOGIN:', process.env.JWT_SECRET);
     const { identifier, password } = request.body as any;
     const userRepository = new PrismaUserRepository();
     const loginUseCase = new LoginUserUseCase(userRepository);

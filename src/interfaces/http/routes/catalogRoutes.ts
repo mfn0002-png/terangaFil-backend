@@ -1,8 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { CatalogController } from '../controllers/CatalogController.js';
+import { ReviewController } from '../controllers/ReviewController.js';
 
 const catalogController = new CatalogController();
+const reviewController = new ReviewController();
 
 export async function catalogRoutes(app: FastifyInstance) {
   app.get('/catalog/products', {
@@ -14,6 +16,8 @@ export async function catalogRoutes(app: FastifyInstance) {
         category: z.string().optional(),
         minPrice: z.coerce.number().int().optional(),
         maxPrice: z.coerce.number().int().optional(),
+        page: z.coerce.number().int().positive().optional(),
+        limit: z.coerce.number().int().positive().optional(),
       }),
     },
   }, catalogController.listProducts);
@@ -44,4 +48,12 @@ export async function catalogRoutes(app: FastifyInstance) {
       }),
     },
   }, catalogController.getProduct);
+
+  app.get('/catalog/products/:id/reviews', {
+    schema: {
+      description: 'Récupérer les avis d\'un produit',
+      tags: ['Catalogue'],
+      params: z.object({ id: z.string() }),
+    },
+  }, reviewController.getProductReviews);
 }

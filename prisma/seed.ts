@@ -142,7 +142,7 @@ async function main() {
           ],
           description: `Un excellent article pour vos projets. Qualité exceptionnelle.`,
           material: randBool() ? '100% Coton bio' : 'Acrylique / Laine',
-          colors: [rand(COLORS), rand(COLORS)],
+          colors: [...COLORS].sort(() => 0.5 - Math.random()).slice(0, randInt(1, 3)),
           sizes: [rand(SIZES)]
         }
       }));
@@ -223,8 +223,45 @@ async function main() {
       });
     }
   }
-
   console.log('✅ 50 commandes simulées créées.');
+
+  // 9. REVIEWS (Avis clients)
+  console.log('⭐ Création des avis clients...');
+  const REVIEW_COMMENTS = [
+    'Super produit, je recommande !',
+    'Qualité exceptionnelle, exactement ce que je cherchais.',
+    'Livraison rapide et produit conforme.',
+    'Un peu déçu par la couleur, mais la qualité est là.',
+    'Parfait pour mes créations de tricot.',
+    'Le fil est très doux et facile à travailler.',
+    'Excellent rapport qualité/prix.',
+    'Je commanderai à nouveau sans hésiter.',
+    'Magnifique ! Les couleurs sont vibrantes.',
+    'Très satisfait de mon achat.'
+  ];
+
+  const reviewPromises = [];
+  for (const product of allProducts) {
+    // 30% de chance qu'un produit ait des avis
+    if (Math.random() > 0.7) {
+      const nbReviews = randInt(1, 4);
+      const chosenClients = [...clients].sort(() => 0.5 - Math.random()).slice(0, nbReviews);
+      
+      for (const client of chosenClients) {
+        reviewPromises.push(prisma.review.create({
+          data: {
+            userId: client.id,
+            productId: product.id,
+            rating: randInt(3, 5), // On reste sur des bonnes notes pour le seed
+            comment: randBool() ? rand(REVIEW_COMMENTS) : null
+          }
+        }));
+      }
+    }
+  }
+  await Promise.all(reviewPromises);
+  console.log(`✅ Avis clients générés.`);
+
   console.log('🌱 Seeding terminé avec succès ! Votre Dashboard devrait être magnifique !');
 }
 

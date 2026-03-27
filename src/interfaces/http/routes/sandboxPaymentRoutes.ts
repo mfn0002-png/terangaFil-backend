@@ -206,7 +206,7 @@ export async function sandboxPaymentRoutes(app: FastifyInstance) {
       
       try {
         // Appeler le callback backend pour confirmer le paiement
-        await fetch(\`\${backendUrl}/api/payment/callback\`, {
+        await fetch(\`\${backendUrl}/payment/callback\`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

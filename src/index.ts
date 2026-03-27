@@ -16,8 +16,10 @@ import { paymentRoutes } from './interfaces/http/routes/paymentRoutes.js';
 import fastifyCors from '@fastify/cors';
 import { sandboxPaymentRoutes } from './interfaces/http/routes/sandboxPaymentRoutes.js';
 import { notificationRoutes } from './interfaces/http/routes/notificationRoutes.js';
+import { reviewRoutes } from './interfaces/http/routes/reviewRoutes.js';
 import fastifyWebsocket from '@fastify/websocket';
 import { webSocketService } from './infrastructure/services/WebSocketService.js';
+import { registerWebSocketRoutes } from './core/config/WebSocketConfig.js';
 
 
 
@@ -65,40 +67,8 @@ app.register(fastifyCors, {
 app.register(fastifySwaggerUi, {
   routePrefix: '/docs',
 });
-
-// Configuration WebSockets
-app.register(fastifyWebsocket);
-
-// Route WebSocket pour les notifications en temps réel
-app.register(async function (fastify) {
-  fastify.get('/ws', { websocket: true }, (connection, req) => {
-    // Authentification via Token JWT dans l'URL (?token=...)
-    const token = (req.query as any).token;
-    
-    if (!token) {
-      console.log('🔌 [WS] Connexion refusée : Token manquant');
-      connection.socket.close(1008, 'Token required');
-      return;
-    }
-
-    try {
-      const decoded: any = fastify.jwt.verify(token);
-      const userId = decoded.sub ? Number(decoded.sub) : null;
-
-      if (!userId) {
-        connection.socket.close(1008, 'Invalid payload');
-        return;
-      }
-
-      // Enregistrer la connexion
-      webSocketService.registerConnection(userId, connection);
-      
-    } catch (err) {
-      console.log('🔌 [WS] Connexion refusée : Token invalide');
-      connection.socket.close(1008, 'Invalid token');
-    }
-  });
-});
+await app.register(fastifyWebsocket);
+await app.register(async (app) => registerWebSocketRoutes(app)); 
 
 // Enregistrement des routes
 app.register(authRoutes);
@@ -111,6 +81,7 @@ app.register(premiumRoutes);
 app.register(favoriteRoutes);
 app.register(paymentRoutes);
 app.register(notificationRoutes);
+app.register(reviewRoutes);
 
 
 // Sandbox routes (only if PAYDUNYA_SANDBOX_MODE=true)
